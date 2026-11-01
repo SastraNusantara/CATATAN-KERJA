@@ -1,1 +1,14 @@
 
+CATATAN-KERJA/
+├── app/
+│   ├── build.gradle
+│   └── src/
+│       └── main/
+│           ├── AndroidManifest.xml
+│           ├── assets/
+│           └── java/
+├── build.gradle
+├── settings.gradle
+└── .github/
+    └── workflows/
+        └── main.yml
