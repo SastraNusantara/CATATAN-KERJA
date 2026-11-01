@@ -1,42 +1,42 @@
 
-name: Build CATATAN KERJA APK
+name: Build Android APK
 
 on:
-  push:
-    branches:
-      - main
-      - master
   workflow_dispatch:
+  push:
+    branches: [main, master]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Extract Android project
         run: |
-          unzip -q CatatanKerja-Android-Project.zip -d source
-          test -f source/CatatanKerja-Android/settings.gradle
-          test -f source/CatatanKerja-Android/app/build.gradle
+          ZIP_FILE=$(find . -type f -name 'CatatanKerja-Android-Project.zip' -print -quit)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: File ZIP tidak ditemukan!"
+            find . -maxdepth 3 -type f
+            exit 1
+          fi
+          unzip -q "$ZIP_FILE" -d source
 
       - name: Build debug APK
         working-directory: source/CatatanKerja-Android
@@ -45,7 +45,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: CATATAN-KERJA-APK
-          path: source/CatatanKerja-Android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 14
+          name: CatatanKerja-debug-apk
+          path: source/CatatanKerja-Android/app/build/outputs/apk/debug/app-debug.apk
