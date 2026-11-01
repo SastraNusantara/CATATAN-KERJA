@@ -1,40 +1,51 @@
+
 name: Build CATATAN KERJA APK
 
 on:
-workflow_dispatch:
-push:
-branches: [main, master]
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-steps:
-  - name: Checkout source
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  - name: Setup Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Build APK
-    run: |
-      if [ -f ./gradlew ]; then
-        chmod +x ./gradlew
-        ./gradlew assembleDebug
-      elif [ -f ./gradlew.bat ]; then
-        echo "Wrapper Gradle Windows tidak dapat digunakan langsung di Linux."
-        exit 1
-      else
-        echo "File gradlew tidak ditemukan."
-        exit 1
-      fi
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-  - name: Upload APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: CATATAN-KERJA-APK
-      path: app/build/outputs/apk/debug/*.apk
-      if-no-files-found: error
+      - name: Extract Android project
+        run: |
+          unzip -q CatatanKerja-Android-Project.zip -d source
+          test -f source/CatatanKerja-Android/settings.gradle
+          test -f source/CatatanKerja-Android/app/build.gradle
+
+      - name: Build debug APK
+        working-directory: source/CatatanKerja-Android
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CATATAN-KERJA-APK
+          path: source/CatatanKerja-Android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
