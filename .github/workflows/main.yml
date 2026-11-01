@@ -1,14 +1,40 @@
+name: Build CATATAN KERJA APK
 
-CATATAN-KERJA/
-├── app/
-│   ├── build.gradle
-│   └── src/
-│       └── main/
-│           ├── AndroidManifest.xml
-│           ├── assets/
-│           └── java/
-├── build.gradle
-├── settings.gradle
-└── .github/
-    └── workflows/
-        └── main.yml
+on:
+workflow_dispatch:
+push:
+branches: [main, master]
+
+jobs:
+build:
+runs-on: ubuntu-latest
+
+steps:
+  - name: Checkout source
+    uses: actions/checkout@v4
+
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
+
+  - name: Build APK
+    run: |
+      if [ -f ./gradlew ]; then
+        chmod +x ./gradlew
+        ./gradlew assembleDebug
+      elif [ -f ./gradlew.bat ]; then
+        echo "Wrapper Gradle Windows tidak dapat digunakan langsung di Linux."
+        exit 1
+      else
+        echo "File gradlew tidak ditemukan."
+        exit 1
+      fi
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: CATATAN-KERJA-APK
+      path: app/build/outputs/apk/debug/*.apk
+      if-no-files-found: error
