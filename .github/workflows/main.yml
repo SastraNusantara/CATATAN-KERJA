@@ -5,13 +5,10 @@ on:
   push:
     branches: [main, master]
 
-permissions:
-  contents: read
-
 jobs:
   build:
-    name: Build debug APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -27,22 +24,44 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Find Android Gradle project
-        id: project
+      - name: Extract Android project ZIP if needed
         shell: bash
         run: |
           set -euo pipefail
-          SETTINGS="$(find . -type f \( -name settings.gradle -o -name settings.gradle.kts \) -not -path '*/.gradle/*' -not -path '*/build/*' -print -quit)"
-          if [ -z "$SETTINGS" ]; then
-            echo 'ERROR: settings.gradle/settings.gradle.kts tidak ditemukan.'
-            echo 'Pastikan isi proyek Android (termasuk settings.gradle, build.gradle, dan folder app) sudah diunggah ke repositori.'
-            echo 'Isi folder repositori:'
-            find . -maxdepth 3 -type f | sort | head -200
-            exit 1
+
+          # If Gradle files are already at the repository root, use them.
+          if [ -f settings.gradle ] || [ -f settings.gradle.kts ]; then
+            PROJECT_DIR="$GITHUB_WORKSPACE"
+          else
+            ZIP_FILE=""
+            for candidate in \
+              "$GITHUB_WORKSPACE/CatatanKerja-Revisi-Source.zip" \
+              "$GITHUB_WORKSPACE/CatatanKerja-Android-Project.zip"; do
+              if [ -f "$candidate" ]; then
+                ZIP_FILE="$candidate"
+                break
+              fi
+            done
+
+            if [ -z "$ZIP_FILE" ]; then
+              echo "Tidak ditemukan settings.gradle di root dan ZIP proyek Android tidak ditemukan."
+              echo "Unggah CatatanKerja-Revisi-Source.zip ke root repositori atau unggah isi proyek Android."
+              ls -la
+              exit 1
+            fi
+
+            mkdir -p "$GITHUB_WORKSPACE/extracted-project"
+            unzip -o "$ZIP_FILE" -d "$GITHUB_WORKSPACE/extracted-project"
+
+            PROJECT_DIR="$(find "$GITHUB_WORKSPACE/extracted-project" -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit | xargs -r dirname)"
+            if [ -z "$PROJECT_DIR" ] || { [ ! -f "$PROJECT_DIR/settings.gradle" ] && [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; }; then
+              echo "ZIP sudah diekstrak, tetapi settings.gradle tidak ditemukan."
+              find "$GITHUB_WORKSPACE/extracted-project" -maxdepth 5 -type f | head -100
+              exit 1
+            fi
           fi
-          PROJECT_DIR="$(dirname "$SETTINGS")"
-          PROJECT_DIR="$(realpath "$PROJECT_DIR")"
-          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Proyek Android ditemukan di: $PROJECT_DIR"
           ls -la "$PROJECT_DIR"
 
@@ -50,13 +69,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd "${{ steps.project.outputs.project_dir }}"
-          if [ -f ./gradlew ]; then
-            chmod +x ./gradlew
-            ./gradlew --no-daemon assembleDebug
-          else
-            gradle --no-daemon assembleDebug
-          fi
+          cd "$PROJECT_DIR"
+          gradle --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -65,4 +79,3 @@ jobs:
           path: |
             **/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
